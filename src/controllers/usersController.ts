@@ -1,18 +1,27 @@
 import { Request, Response } from 'express';
 import { createDataUser, deleteDataUser, getAllDataUser, getDataUserById, updateDataUser } from '../models/userModel';
-import ReqBodyType from '../models/userModel';
 import bcrypt from 'bcryptjs';
+import { z } from 'zod';
+
+const userSchema = z.object({
+  nama: z.string().min(1),
+  username: z.string().min(3),
+  email: z.string().email(),
+  password: z.string().min(6),
+  role: z.enum(['ADMIN', 'USER']).optional()
+});
 
 export const getAllUser = async (req: Request, res: Response) => {
   try {
     const user = await getAllDataUser();
 
-    if (!user) {
-      res.status(400).json({
+    if (!user || user.length === 0) {
+      res.status(404).json({
         status: false,
-        message: 'gagal mengambil data',
-        data: 'not found',
+        message: 'tidak ada data user',
+        data: [],
       });
+      return;
     }
 
     res.status(200).json({
@@ -20,12 +29,11 @@ export const getAllUser = async (req: Request, res: Response) => {
       message: 'berhasil mengambil data',
       data: user,
     });
-  } catch (err) {
-    console.log(err);
-    res.status(400).json({
+  } catch (error) {
+    res.status(500).json({
       status: false,
-      message: 'Terjadi kesalahan server',
-      data: 'not found',
+      message: 'data gagal diambil',
+      data: null,
     });
   }
 };
@@ -39,9 +47,10 @@ export const getUserById = async (req: Request, res: Response) => {
     if (!user) {
       res.status(400).json({
         status: false,
-        message: 'gagal mengambil data',
-        data: 'not found',
+        message: 'data ini tidak di temukan',
+        data: {},
       });
+      return;
     }
 
     res.status(200).json({
@@ -49,42 +58,35 @@ export const getUserById = async (req: Request, res: Response) => {
       message: 'berhasil mengambil data',
       data: user,
     });
-  } catch (err) {
-    console.log(err);
-    res.status(400).json({
+  } catch (error) {
+    res.status(500).json({
       status: false,
-      message: 'Terjadi kesalahan server',
-      data: 'not found',
+      message: 'data gagal diambil',
+      data: null,
     });
   }
 };
 
 export const createUser = async (req: Request, res: Response) => {
-  const newData: ReqBodyType = req.body;
-  const { password } = newData;
-
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const userToSave = { ...newData, password: hashedPassword };
+    const parsed = userSchema.parse(req.body);
+    const hashedPassword = await bcrypt.hash(parsed.password, 10);
+    const userToSave = {
+      ...parsed,
+      password: hashedPassword,
+    };
     const user = await createDataUser(userToSave);
 
-    if (!user) {
-      res.status(400).json({
-        status: user,
-        message: 'data gagal ditambahkan',
-      });
-    }
-
-    res.status(201).json({
+    res.status(200).json({
       status: true,
       message: 'data berhasil ditambahkan',
+      data: user,
     });
-  } catch (err) {
-    console.log(err);
-    res.status(400).json({
+  } catch (error) {
+    res.status(500).json({
       status: false,
-      message: 'Terjadi kesalahan server',
-      data: 'not found',
+      message: 'data gagal ditambahkan',
+      data: null,
     });
   }
 };
@@ -97,9 +99,10 @@ export const deleteUser = async (req: Request, res: Response) => {
     if (!user) {
       res.status(400).json({
         status: false,
-        message: 'gagal menghapus data',
-        data: 'not found',
+        message: 'data ini tidak ada',
+        data: [],
       });
+      return;
     }
 
     res.status(200).json({
@@ -107,48 +110,49 @@ export const deleteUser = async (req: Request, res: Response) => {
       message: 'berhasil menghapus data',
       data: user,
     });
-  } catch (err) {
-    console.log(err);
-    res.status(400).json({
+  } catch (error) {
+    res.status(500).json({
       status: false,
-      message: 'Terjadi kesalahan server',
-      data: 'not found',
+      message: 'data gagal dihapus',
+      data: null,
     });
   }
 };
 
 export const updateUser = async (req: Request, res: Response) => {
   const { id } = req.params;
-  let newData = req.body;
 
   try {
-    if (newData.password && newData.password.trim() !== '') {
-      const hashedPassword = await bcrypt.hash(newData.password, 10);
-      newData = { ...newData, password: hashedPassword };
-    } else {
-      delete newData.password;
+    const parsedData = userSchema.parse(req.body);
+
+    let updatedData = { ...parsedData };
+
+    if (parsedData.password && parsedData.password.trim() !== '') {
+      const hashedPassword = await bcrypt.hash(parsedData.password, 10);
+      updatedData.password = hashedPassword;
     }
 
-    const user = await updateDataUser(Number(id), newData);
+    const user = await updateDataUser(Number(id), updatedData);
+    
     if (!user) {
       res.status(400).json({
         status: false,
-        message: 'gagal mengubah data',
-        data: 'not found',
+        message: 'data ini tidak ada',
+        data: [],
       });
+      return;
     }
 
-    res.status(201).json({
+    res.status(200).json({
       status: true,
       message: 'berhasil mengubah data',
       data: user,
     });
-  } catch (err) {
-    console.log(err);
+  } catch (error) {
     res.status(400).json({
       status: false,
-      message: 'Terjadi kesalahan server',
-      data: 'not found',
+      message: 'data gagal diubah',
+      data: null,
     });
   }
 };
