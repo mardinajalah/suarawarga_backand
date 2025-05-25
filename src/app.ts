@@ -9,7 +9,6 @@ app.use(express.json());
 app.use('/api/user', userRauter);
 app.use('/api/penulis', penulisRouter);
 
-
 app.use(errorHandler)
 
 export default app;
